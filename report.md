@@ -94,7 +94,7 @@ DeepTAM 将传统的 Tracking-and-Mapping 框架与卷积神经网络结合，�
 # 2 Method
 **pointmap：**
 
-代表二维图片的像素点与其3D场景点的一一对应关系。即$ I_{i,j} \leftrightarrow X_{i,j} $, 对于每个2d像素点，都有与其对应的3d点。以（B,H,W,3）形式存储。
+代表二维图片的像素点与其3D场景点的一一对应关系。即![image](https://cdn.nlark.com/yuque/__latex/5647521a691e1d7e67d19c8f2005bf1a.svg), 对于每个2d像素点，都有与其对应的3d点。以（B,H,W,3）形式存储。
 
 
 
@@ -102,18 +102,17 @@ DeepTAM 将传统的 Tracking-and-Mapping 框架与卷积神经网络结合，�
 
 给定相机内参K与真实深度图depthmap D ,可以直接得到观测场景的pointmap：
 
-$ X_{i,j} = K^{-1}{[iD_{i,j},jD_{i,j},D_{i,j}]}^T $
+![image](https://cdn.nlark.com/yuque/__latex/a4860d012b8d0e6ea152b2f689cac013.svg)
 
-上式X表示在相机坐标系下，我们用上标$ X^{n,m} $表示相机n在相机相机m的点映射：
+上式X表示在相机坐标系下，我们用上标![image](https://cdn.nlark.com/yuque/__latex/292a1a3f56e7604117db14168ab27375.svg)表示相机n在相机相机m的点映射：
 
-$ X^{n,m} = P_{m}P_{n}^{-1}h(X^n) $
+![image](https://cdn.nlark.com/yuque/__latex/8e933343c1ab04d59bd698ac19e52d13.svg)
 
-其中$ P_m，P_n是世界系到m,n相机系的变换矩阵; h(X):(x,y,z)\rightarrow (x,y,z,1) $
+其中![image](https://cdn.nlark.com/yuque/__latex/2f6aedff7ca4ba78ef4eb1c3cd52ef7d.svg)
 
  
 
 ## 2.1 网络架构
-<!-- 这是一张图片，ocr 内容为： -->
 ![](https://cdn.nlark.com/yuque/0/2025/png/58377837/1766293560616-b4619e54-9c42-491e-8630-827dee8d7433.png)
 
 Dust3R通过直接回归的方式，构建网络来解决三维重建任务。网络输入两张RGB图片，输出对应的pointmap与置信度。需要注意的是，两张点图均表达在第一张图像的坐标系下。
@@ -122,23 +121,21 @@ Dust3R网络F的架构受到了CroCo [150] 的启发，使得它可以直接从C
 
 网络在解码器中对两者进行联合推理。与CroCo类似，解码器是一个具有交叉注意力的通用transform网络。
 
-<!-- 这是一张图片，ocr 内容为： -->
 ![](https://cdn.nlark.com/yuque/0/2025/png/58377837/1766293493529-c7510e35-b612-4ba5-836d-906a6eacc35a.png)
 
 每个解码器块关注来自另一个分支的token：解码器模块(一共有B块)依次执行自注意力(每个视图的标记都关注同一个视图的标记)，然后交叉注意力(一个视图的每个标记都关注另一个视图的所有其它标记)，最后将令牌反馈给MLP。重要的是，在解码器传递过程中，两个分支之间的信息是不断共享的。这对于输出正确对齐的点图是至关重要的。
 
-$ G_i^1 = DecoderBlock_i^1(G_{i-1}^1,G_{i-1}^2), $
+![image](https://cdn.nlark.com/yuque/__latex/2e0360ac6f8296a6e256d70ed6f4d000.svg)
 
-$ G_i^2 = DecoderBlock_i^1(G_{i-1}^2,G_{i-1}^1),
- $
+![image](https://cdn.nlark.com/yuque/__latex/a70506c321db7b8c4b87e6fe1b4199d1.svg)
 
-初始值$ G_0^1 = F_1,G_0^2 = F_2 $
+初始值![image](https://cdn.nlark.com/yuque/__latex/1faa8b21d34696ebdc82559e5b3a120a.svg)
 
 最后，每个分支的回归头取解码器的token合集，输出相机1系下的pointmap1、相机2对齐相机1系后的pointmap2与对应的置信度图。
 
-$ X^{1,1},C^{1,1} = Head^1(G_0^1,...,G_B^1) $
+![image](https://cdn.nlark.com/yuque/__latex/61ffcd9c938d4617ba8d5dab1f0352b0.svg)
 
-$ X^{2,1},C^{2,1} = Head^2(G_0^2,...,G_B^2) $
+![image](https://cdn.nlark.com/yuque/__latex/a7290a586ed3d2570cfd43db2eefbf22.svg)
 
 > **[150] CroCo（Cross-view Completion）** 是一种 **自监督预训练范式**，旨在让视觉模型学习 **跨视图几何关系**。它的核心预训练任务是：输入一对同一场景但不同视角的图像，随机遮挡第一张图的一部分。模型必须基于未遮挡部分和第二张完整视图来重建被遮挡部分。
 >
@@ -149,11 +146,11 @@ $ X^{2,1},C^{2,1} = Head^2(G_0^2,...,G_B^2) $
 ### 2.2.1 3D回归损失（3D Regression loss）
 唯一的训练目标是基于3D空间中的回归。网络通过最小化预测pointmap与真实三维点之间的距离来进行优化。为缓解尺度不确定性问题，论文在损失函数中引入了尺度归一化，使网络关注于几何结构的一致性而非绝对尺度。
 
-$ l_{regr}(v,i) = ||\frac{1}{z}X_i^{v,1} - \frac{1}{\overline z}\overline X_i^{v,1}|| $
+![image](https://cdn.nlark.com/yuque/__latex/1c84daa824101641d37f4d34e23b4245.svg)
 
-其中，$ z = norm(X^{1,1},X^{2,1}), \overline z = norm(\overline X^{1,1},\overline X^{2,1}),norm(X^1,X^2)=\frac{1}{|D^1|+|D^2|}\sum_{v\in{1,2}}\sum_{i\in D^v}||X_i^v|| $
+其中，![image](https://cdn.nlark.com/yuque/__latex/10fedfe508a6963c7aea9a3541b6e658.svg)
 
-> GT pointmap使用$ X_{i,j} = K^{-1}{[iD_{i,j},jD_{i,j},D_{i,j}]}^T $，$ X_{i,j} = K^{-1}{[iD_{i,j},jD_{i,j},D_{i,j}]}^T $从GT 深度图、相机内参和相机姿态得出
+> GT pointmap使用![image](https://cdn.nlark.com/yuque/__latex/a4860d012b8d0e6ea152b2f689cac013.svg)，![image](https://cdn.nlark.com/yuque/__latex/a4860d012b8d0e6ea152b2f689cac013.svg)从GT 深度图、相机内参和相机姿态得出
 >
 
 ```python
@@ -250,9 +247,9 @@ class Regr3D(Criterion, MultiLoss):
 ### 2.2.2 置信度感知损失（Confidence-aware loss）
 在现实中，存在定义不明确的3D点，例如在天空或半透明物体上。更一般来说，图像中的某些部分通常更难预测其3d点。因此，我们联合学习为每个像素预测一个分数，该分数代表了网络对这个特定像素的信心。
 
-$ l_{conf} = \sum_{v\in {1,2}}\sum_{i\in D_v}C_i^{v,1}l_{regr}(v,i)-\alpha logC_i^{v,1} $
+![image](https://cdn.nlark.com/yuque/__latex/42ea577ccdca3b11f3082a11d9279c9f.svg)
 
-$ C_i^{v,i} $为像素i的置信度，$ \alpha $为控制正则化项的超参数。为了保证严格正的置信度，通常定义$ C_i^{v,1} = 1 + exp \widetilde {C_i^{v,1}} > 1 $。这具有迫使网络在更困难的区域进行外推的效果。
+![image](https://cdn.nlark.com/yuque/__latex/3b2d64f059ebf6f83d8efc2918fdb8c7.svg)为像素i的置信度，![image](https://cdn.nlark.com/yuque/__latex/18d25ca4f77a9bbed9812e2bb0b350a5.svg)为控制正则化项的超参数。为了保证严格正的置信度，通常定义![image](https://cdn.nlark.com/yuque/__latex/ab88651fb1ef769e7e72c9ddedc51e99.svg)。这具有迫使网络在更困难的区域进行外推的效果。
 
 
 
@@ -333,21 +330,14 @@ class ConfLoss(MultiLoss):
 
 
 ### 2.2.3 输入图像与相关输出
-<!-- 这是一张图片，ocr 内容为： -->
 ![](https://cdn.nlark.com/yuque/0/2025/png/58377837/1766287293324-bee4141e-d545-4af3-856f-f6727766ff06.png)
 
-<!-- 这是一张图片，ocr 内容为： -->
 ![](https://cdn.nlark.com/yuque/0/2025/png/58377837/1766317163383-e24642bd-0e8e-4b4b-8648-abe41d11ba9d.png)
 
-<!-- 这是一张图片，ocr 内容为： -->
-![](https://cdn.nlark.com/yuque/0/2025/png/58377837/1766287555624-f0380659-6eac-4d03-b4a9-ade0513f0474.png)       <!-- 这是一张图片，ocr 内容为： -->
-![](https://cdn.nlark.com/yuque/0/2025/png/58377837/1766287588267-d6ed56a6-2f28-4c06-95c3-a8f4e3a522eb.png)
+![](https://cdn.nlark.com/yuque/0/2025/png/58377837/1766287555624-f0380659-6eac-4d03-b4a9-ade0513f0474.png)       ![](https://cdn.nlark.com/yuque/0/2025/png/58377837/1766287588267-d6ed56a6-2f28-4c06-95c3-a8f4e3a522eb.png)
 
-<!-- 这是一张图片，ocr 内容为： -->
-![](https://cdn.nlark.com/yuque/0/2025/png/58377837/1766287704140-7cbbd466-d55c-49cf-a6ab-ae9e66e5ed8b.png)        <!-- 这是一张图片，ocr 内容为： -->
-![](https://cdn.nlark.com/yuque/0/2025/png/58377837/1766287736413-d469f531-7ae1-4072-ae1c-ed1fa62393d1.png)
+![](https://cdn.nlark.com/yuque/0/2025/png/58377837/1766287704140-7cbbd466-d55c-49cf-a6ab-ae9e66e5ed8b.png)        ![](https://cdn.nlark.com/yuque/0/2025/png/58377837/1766287736413-d469f531-7ae1-4072-ae1c-ed1fa62393d1.png)
 
-<!-- 这是一张图片，ocr 内容为： -->
 ![](https://cdn.nlark.com/yuque/0/2025/png/58377837/1766287890074-8820a622-698c-4105-9c84-d9f736315883.png)
 
 
@@ -356,11 +346,11 @@ class ConfLoss(MultiLoss):
 输出点图的丰富属性使得我们可以相对轻松地执行各种便捷的操作。比如点匹配、恢复相机内参、相对位姿估计等。
 
 ### 2.3.1 Point matching 
-建立两幅图像像素之间的对应关系可以通过在3D点图空间中的最近邻( NN )搜索来实现。为了最小化误差，我们通常保留图像$ I_1 $和$ I_2 $之间的互逆(相互)对应关系$ M_{1,2} $:
+建立两幅图像像素之间的对应关系可以通过在3D点图空间中的最近邻( NN )搜索来实现。为了最小化误差，我们通常保留图像![image](https://cdn.nlark.com/yuque/__latex/fef54df50428f2b4a031c615dc6128b2.svg)和![image](https://cdn.nlark.com/yuque/__latex/82572ed51cc2a59e203a8b26c120e7d8.svg)之间的互逆(相互)对应关系![image](https://cdn.nlark.com/yuque/__latex/cc8778de19fde2d756505b1a5bdbfad3.svg):
 
-$ M_{1,2} = \left\{(i,j)|i=NN_1^{1,2}(j)\ and \ j=NN_1^{2,1}(i)\right\} $
+![image](https://cdn.nlark.com/yuque/__latex/01d564bf2a62659393ef7dd405792717.svg)
 
-$ with NN_k^{n,m}(i) = \mathop{argmin}\limits_{j \in\left\{0,...,WH\right\}}||X_j^{n,k}-X_i^{m,k}|| $
+![image](https://cdn.nlark.com/yuque/__latex/a620a7cfe44298befd05b3ad2fa4192c.svg)
 
 ```python
 def find_reciprocal_matches(P1, P2):
@@ -413,11 +403,11 @@ def find_reciprocal_matches(P1, P2):
 
 
 ### 2.3.2 Recovering intrinsics
-根据定义，点映射$ X^{1,1} $表示在$ I_1 $的坐标框架中。因此，可以通过求解一个简单的优化问题来估计摄像机的内参数。在这项工作中，我们假设主点是近似中心的，像素是正方形的，
+根据定义，点映射![image](https://cdn.nlark.com/yuque/__latex/1f360cc6e535dd5ff1a045ca92f9e175.svg)表示在![image](https://cdn.nlark.com/yuque/__latex/fef54df50428f2b4a031c615dc6128b2.svg)的坐标框架中。因此，可以通过求解一个简单的优化问题来估计摄像机的内参数。在这项工作中，我们假设主点是近似中心的，像素是正方形的，
 
-$ f_1^* = \mathop{argmin}\limits_{f_1}\sum_{i=0}^{W}\sum_{j=0}^{H}C_{i,j}^{1,1}||(i^{'},j^{'})-f_1\frac{(X_{i,j,0}^{1,1},X_{i,j,1}^{1,1})}{X_{i,j,2}^{1,1}}|| $
+![image](https://cdn.nlark.com/yuque/__latex/662d7e9df76e0d55f8111661c879c9e4.svg)
 
-其中，$ i^{'} = i - \frac{W}{2},j^{'} = j - \frac{H}{2} $
+其中，![image](https://cdn.nlark.com/yuque/__latex/03c28cc40236b0a4bcd4dba82acb66d7.svg)
 
 
 
@@ -488,9 +478,9 @@ def estimate_focal_knowing_depth(pts3d, pp, focal_mode='median', min_focal=0., m
 
 
 ## 2.3.3 Relative pose estimation
-可以通过几种方法实现。一种方法是进行2D匹配并恢复如上所述的内参，然后估计极线矩阵并恢复相对位姿。另一种更直接的方式是利用Procrustes对齐[64]pointmap$ X^{1,1} \leftrightarrow X^{1,2} $:
+可以通过几种方法实现。一种方法是进行2D匹配并恢复如上所述的内参，然后估计极线矩阵并恢复相对位姿。另一种更直接的方式是利用Procrustes对齐[64]pointmap![image](https://cdn.nlark.com/yuque/__latex/127caf6c7abd0201b15420a3e7addb6b.svg):
 
-$ R^*,t^* = \mathop{argmin}\limits_{\sigma,R,t}\sum_iC_i^{1,1}C_i^{1,2}||\sigma(RX_i^{1,1}+t)-X_i^{1,2}||^2 $ 
+![image](https://cdn.nlark.com/yuque/__latex/276ecbc84c88cace355398f18980c035.svg) 
 
 遗憾的是，Procrustes对齐对噪声和异常值非常敏感。
 
@@ -570,7 +560,7 @@ aligned_pred_j = geotrf(pw_poses[e], pw_adapt[e] * self.pred_j[i_j])
 
 ```
 
-更鲁棒的解决方案最终是依靠RANSAC 和 PnP实现。通过已知的 **3D–2D 对应关系**来估计相机相对于世界坐标系的位姿，其核心目标是求解使三维点经过相机位姿变换并投影到图像平面后，与对应二维像素点最一致的旋转R和平移t。具体过程是：在给定相机内参的前提下，利用若干对$ (X_i,x_i) $建立针孔投影约束，先通过最小样本解法（如 P3P）或线性方法得到位姿初值，再结合 RANSAC 剔除外点，最后以**最小化重投影误差**为目标进行非线性优化，从而得到稳定且几何一致的相机相对位姿估计。  
+更鲁棒的解决方案最终是依靠RANSAC 和 PnP实现。通过已知的 **3D–2D 对应关系**来估计相机相对于世界坐标系的位姿，其核心目标是求解使三维点经过相机位姿变换并投影到图像平面后，与对应二维像素点最一致的旋转R和平移t。具体过程是：在给定相机内参的前提下，利用若干对![image](https://cdn.nlark.com/yuque/__latex/6747b042d1f5614b3f41a33dd0e8c76c.svg)建立针孔投影约束，先通过最小样本解法（如 P3P）或线性方法得到位姿初值，再结合 RANSAC 剔除外点，最后以**最小化重投影误差**为目标进行非线性优化，从而得到稳定且几何一致的相机相对位姿估计。  
 
 ```python
 def fast_pnp(pts3d, focal, msk, device, pp=None, niter_PnP=10):  
@@ -648,8 +638,7 @@ def fast_pnp(pts3d, focal, msk, device, pp=None, niter_PnP=10):
 
 
 ## 2.3.4 Absolute pose estimation
-也称为视觉定位，同样可以通过几种不同的方式来实现。让$ I_Q $表示查询图像，$ I_B
- $表示具有 2D-3D 对应关系的参考图像。首先,$ I_Q $的内参可以根据$ X^{Q,Q} $进行估计。通过一对图像的pointmap可以获取$ I_Q $和 $ I_B $之间的 2D 对应关系，进而生成 $ I_Q $ 的 2D-3D 对应关系，然后通过 PnP-RANSAC 求解。
+也称为视觉定位，同样可以通过几种不同的方式来实现。让![image](https://cdn.nlark.com/yuque/__latex/f512b0f45952c45f38ef4b2c01bdd0bf.svg)表示查询图像，![image](https://cdn.nlark.com/yuque/__latex/f73815359dc15cd628e0528b0a6e0924.svg)表示具有 2D-3D 对应关系的参考图像。首先,![image](https://cdn.nlark.com/yuque/__latex/f512b0f45952c45f38ef4b2c01bdd0bf.svg)的内参可以根据![image](https://cdn.nlark.com/yuque/__latex/5e64fa269e747990b0d8ea953dd91114.svg)进行估计。通过一对图像的pointmap可以获取![image](https://cdn.nlark.com/yuque/__latex/f512b0f45952c45f38ef4b2c01bdd0bf.svg)和 ![image](https://cdn.nlark.com/yuque/__latex/5ed0757abc752a5676f5da46d648c9bf.svg)之间的 2D 对应关系，进而生成 ![image](https://cdn.nlark.com/yuque/__latex/f512b0f45952c45f38ef4b2c01bdd0bf.svg) 的 2D-3D 对应关系，然后通过 PnP-RANSAC 求解。
 
 > 视觉定位：给定一张（或少量）查询图像，估计该相机在**已知世界坐标系**中的**绝对位姿**。  
 >
@@ -858,9 +847,7 @@ def minimum_spanning_tree(imshapes, edges, pred_i, pred_j, conf_i, conf_j, im_co
 
 ```
 
-另一种解决方案是获取$ I^Q $和$ I^B
- $之间的相对位姿，如前所述。然后，我们根据$ X^{B,B} $和$ I^B
- $的地面实况点图之间的比例，通过适当缩放该姿势，将其转换为世界坐标。
+另一种解决方案是获取![image](https://cdn.nlark.com/yuque/__latex/d422d2418625b1a09ea50c19f5a1baca.svg)和![image](https://cdn.nlark.com/yuque/__latex/62fc92a63c5a7864a57fb7ae637b2620.svg)之间的相对位姿，如前所述。然后，我们根据![image](https://cdn.nlark.com/yuque/__latex/c940e4e760b9bbf751b1d794d26849db.svg)和![image](https://cdn.nlark.com/yuque/__latex/62fc92a63c5a7864a57fb7ae637b2620.svg)的地面实况点图之间的比例，通过适当缩放该姿势，将其转换为世界坐标。
 
 
 
@@ -871,19 +858,17 @@ def minimum_spanning_tree(imshapes, edges, pred_i, pred_j, conf_i, conf_j, im_co
 
 **成对图（Pairwise graph）**
 
-给定一组图像$ \left\{I^1,I^2,...,I^N \right\} $对于给定场景，我们首先构造一个连通图 G(V, E)，其中 N 个图像形成顶点 V，每条边 e = (n, m) ∈ E 表示图像$ I^n $和$ I^m $共享的一些视觉内容。并根据两对的平均置信度来测量它们的重叠，然后我们过滤掉低置信度对。
+给定一组图像![image](https://cdn.nlark.com/yuque/__latex/c0ace3ab42716dbcf2ae727dd03ce23c.svg)对于给定场景，我们首先构造一个连通图 G(V, E)，其中 N 个图像形成顶点 V，每条边 e = (n, m) ∈ E 表示图像![image](https://cdn.nlark.com/yuque/__latex/8d4907c9cfa0bde3b305dc21550442e8.svg)和![image](https://cdn.nlark.com/yuque/__latex/573534a12af040e6603b728071747970.svg)共享的一些视觉内容。并根据两对的平均置信度来测量它们的重叠，然后我们过滤掉低置信度对。
 
 
 
 **全局优化（Global optimization）  **
 
-我们使用连接图 G 来恢复所有相机 n = 1...N 的全局对齐点图。为此，我们首先对每个图像对 $ e = (n,m)\in E
- $预测成对点$ X^{n,n} $和$ X^{m,n} $及其相关的置信度图 $ C^{n,n} $, $ C^{m,n} $。为了清楚起见，让我们定义$ X^{n,e}:=X^{n,n} $ 和 $ X^{m,e}:=X^{m,n} $。由于我们的目标涉及在公共坐标系中旋转所有成对预测，因此我们引入了成对姿势 $ P_e $ 和与每对 $ e \in E
- $ 相关的缩放 $ \sigma_e >0  $。然后，我们制定以下优化问题：
+我们使用连接图 G 来恢复所有相机 n = 1...N 的全局对齐点图。为此，我们首先对每个图像对 ![image](https://cdn.nlark.com/yuque/__latex/14f7f0403a7553c43439a7bd05f7fd69.svg)预测成对点![image](https://cdn.nlark.com/yuque/__latex/db2a5039a9b9f5124092c2df45b01b7d.svg)和![image](https://cdn.nlark.com/yuque/__latex/a882c2c461c2e6f25b943aa8c8759334.svg)及其相关的置信度图 ![image](https://cdn.nlark.com/yuque/__latex/d05d91a6f614e27214cbe87359aa2270.svg), ![image](https://cdn.nlark.com/yuque/__latex/ec11bcb72728c09eb5229f2ceb71e229.svg)。为了清楚起见，让我们定义![image](https://cdn.nlark.com/yuque/__latex/dad96824fc026a07a6f8d9e672fe0024.svg) 和 ![image](https://cdn.nlark.com/yuque/__latex/f2700dcb8e1c7093b2d9fb33bcea0f32.svg)。由于我们的目标涉及在公共坐标系中旋转所有成对预测，因此我们引入了成对姿势 ![image](https://cdn.nlark.com/yuque/__latex/ae326da67d1a2482f76a2e44ecac093b.svg) 和与每对 ![image](https://cdn.nlark.com/yuque/__latex/0728dc2fbbe1fc9176572a876e8f5d5c.svg) 相关的缩放 ![image](https://cdn.nlark.com/yuque/__latex/dc33427acd8445868832df4d503750e4.svg)。然后，我们制定以下优化问题：
 
-$ X^* = \mathop{argmin}\limits_{x,P,\sigma}\sum_{e\in \varepsilon}\sum_{v\in e}\sum_{i=1}^{HW}C_i^{v,e}||x_i^v-\sigma_eP_eX_i^{v,e}|| $
+![image](https://cdn.nlark.com/yuque/__latex/3b5c52eee9f83c5abbc71498c69158d6.svg)
 
-对于给定的边 e，相同的刚性变换$ P_e $应该将点图$ X^{n,e} $和$ X^{m,e} $与世界坐标点图$ x^n $和$ x^m $对齐，因为根据定义，$ X^{n,e} $和 $ X^{m,e} $都在同一坐标系中表示。
+对于给定的边 e，相同的刚性变换![image](https://cdn.nlark.com/yuque/__latex/ae326da67d1a2482f76a2e44ecac093b.svg)应该将点图![image](https://cdn.nlark.com/yuque/__latex/f305093a76ce34d645cd6d5a4fc7be87.svg)和![image](https://cdn.nlark.com/yuque/__latex/bb277c1b0300a31b338e2f7895d364ef.svg)与世界坐标点图![image](https://cdn.nlark.com/yuque/__latex/722eebfa0ac87ff7cbadf3b46424b7f6.svg)和![image](https://cdn.nlark.com/yuque/__latex/923ef50893a682aabe990c04b8277a60.svg)对齐，因为根据定义，![image](https://cdn.nlark.com/yuque/__latex/f305093a76ce34d645cd6d5a4fc7be87.svg)和 ![image](https://cdn.nlark.com/yuque/__latex/bb277c1b0300a31b338e2f7895d364ef.svg)都在同一坐标系中表示。
 
 我们指出，与传统BA相反，这种全局优化在实践中执行起来快速且简单。事实上，我们并不是像束调整通常那样最小化 2D 重投影误差，而是最小化 3D 投影误差。优化是使用标准梯度下降进行的，通常在几百步后收敛，在标准 GPU 上只需要几秒钟。
 
@@ -1037,7 +1022,7 @@ pts3d[j] = geotrf(trf, pred_j[i_j])
 
 对全局优化框架的直接扩展可以恢复所有相机参数。通过简单地替换
 
-$ x_{i,j}^n := P_n^{-1}h(K_n^{-1}[iD_{i,j}^n;jD_{i,j}^n;D_{i,j}^n]) $（即强制标准相机针孔模型）
+![image](https://cdn.nlark.com/yuque/__latex/b286f868242b99c4f99b23efc7a293a5.svg)（即强制标准相机针孔模型）
 
 我们可以估计所有相机位姿 {Pn}、关联的内在函数 {Kn} 和深度图 {Dn} (n=1...N)
 
@@ -1190,7 +1175,6 @@ def get_intrinsics(self):
 
 
 
-<!-- 这是一张图片，ocr 内容为： -->
 ![](https://cdn.nlark.com/yuque/0/2025/png/58377837/1766302622545-8b0a045c-e6e2-4511-ae67-b94af1dd1310.png)
 
 
@@ -1210,7 +1194,6 @@ def get_intrinsics(self):
 
 在每一个epoch,**从每个数据集随机采样相同数量图像对**，以均衡数据集大小差异。我们希望向网络提供相对高分辨率的图像，例如最大尺寸为 512 像素。首先在 224×224 图像上训练，然后在更大的 512 像素图像上训练。我们**为每个批次随机选择图像长宽比（例如 16/9、4/3 等）**，以便在测试时我们的网络熟悉不同的图像形状。我们只需将图像裁剪为所需的纵横比，然后调整大小以使最大尺寸为 512 像素。**在训练之前，我们使用现成的 CroCo 预训练模型的权重来初始化我们的网络。**
 
-<!-- 这是一张图片，ocr 内容为： -->
 ![](https://cdn.nlark.com/yuque/0/2025/png/58377837/1766292227970-597bcfc9-275f-43cd-9f1c-0fee88baae6c.png)
 
 
@@ -1218,7 +1201,6 @@ def get_intrinsics(self):
 ## 3.1 Visual Localization
 首先评估 DUSt3R 在 7Scenes 和 Cambridge Landmarks 数据集上的绝对姿态估计任务，**分别以 (cm/°) 为单位报告平移误差和旋转误差中值。 **
 
-<!-- 这是一张图片，ocr 内容为： -->
 ![](https://cdn.nlark.com/yuque/0/2025/png/58377837/1766232982317-f7563a30-74b5-41a0-87eb-b73a771b4fff.png)
 
 我们将两个数据集的每个场景的结果与表 1 中的最新技术进行比较。与现有方法（特征匹配方法或基于端到端学习的方法）相比，**我们的方法获得了相当的准确性**，甚至在某些情况下能够超越像 Hloc 这样的强基线。**我们认为这很重要，因为DUSt3R 从未接受过任何视觉定位训练；其次，在 DUSt3R 的训练过程中，既没有看到查询图像，也没有看到数据库图像。**
@@ -1228,7 +1210,6 @@ def get_intrinsics(self):
 ## 3.2 Multi-view Pose Estimation
 我们使用两个多视图数据集CO3Dv2和RealEstate10k进行评估。我们将从 PnP-RANSAC 或全局对齐获得的 DUSt3R 姿态估计结果与基于学习的 RelPose、PoseReg和 PoseDiffusion 以及基于结构的 PixSFM、COLMAP+SPSG（COLMAP 用 SuperPoint 和 SuperGlue 扩展）进行比较。我们**使用图像对的相对旋转精度（RRA）和相对平移精度（RTA）来评估相对位姿误差，并选择阈值τ = 15来报告RTA@15和RRA@15。**此外，我们还计算了平均精度 (mAA)@30，定义为 min(RRA@30、RTA@30) 处角度差精度曲线下的面积。
 
-<!-- 这是一张图片，ocr 内容为： -->
 ![](https://cdn.nlark.com/yuque/0/2025/png/58377837/1766234260454-efa8544f-a26c-47fa-ba6a-68f729d67a63.png)
 
 **具有全局对齐的 DUSt3R 在两个数据集上实现了最佳的整体性能，并显着超越了最先进的 PoseDiffusion 。此外，具有 PnP 的 DUSt3R 还表现出优于学习和基于结构的现有方法的性能。**
@@ -1236,12 +1217,10 @@ def get_intrinsics(self):
 ## 3.3 Monocular Depth
 对于这个单目任务，**只需将相同的输入图像 I 作为 F(I,I) 提供给网络。根据设计，深度预测只是预测 3D 点图中的 z 坐标。**
 
-我们在两个室外（DDAD 、KITTI ）和三个室内（NYUv2 、BONN 、TUM ）数据集上对 DUSt3R 进行基准测试。我们将 DUSt3R 的性能与**分类为监督、自监督和零样本设置**的最先进方法进行比较，最后一个类别对应于 DUSt3R。我们使用单目深度评估中常用的两个指标：**目标 **$ y $** 和预测 **$ \hat y
- $** 之间的绝对相对误差 AbsRel，**
+我们在两个室外（DDAD 、KITTI ）和三个室内（NYUv2 、BONN 、TUM ）数据集上对 DUSt3R 进行基准测试。我们将 DUSt3R 的性能与**分类为监督、自监督和零样本设置**的最先进方法进行比较，最后一个类别对应于 DUSt3R。我们使用单目深度评估中常用的两个指标：**目标 **![image](https://cdn.nlark.com/yuque/__latex/bf98c0ddcbe9c1e535f767c78c3aa813.svg)** 和预测 **![image](https://cdn.nlark.com/yuque/__latex/af6fba38a9856bad5f28c14057c53f16.svg)** 之间的绝对相对误差 AbsRel，**
 
-$ AbsRel = |y-\hat y|/y $**，以及预测阈值精度**$ \delta_{1.25} = max(\hat y/y,y/\hat y) < 1.25 $**.**
+![image](https://cdn.nlark.com/yuque/__latex/72798e2790e16de0310dc579b090cc81.svg)**，以及预测阈值精度**![image](https://cdn.nlark.com/yuque/__latex/3a587f72222869666cedd6ddfc32e0cf.svg)**.**
 
-<!-- 这是一张图片，ocr 内容为： -->
 ![](https://cdn.nlark.com/yuque/0/2025/png/58377837/1766234425772-cce49844-1a32-4b58-a8b3-92cf7d1a9cbc.png)
 
 在零样本设置中，最先进的技术以最近的 SlowTv 为代表。这种方法收集了大量包含城市、自然、合成和室内场景的精选数据集，并训练了一个通用模型。对于混合中的每个数据集，相机参数是已知的或使用 COLMAP 进行估计。**如上表所示，DUSt3R 能够很好地适应室外和室内环境。它的性能优于自监督基线 Monodepth2、SC-SfM-Learners、SC-DepthV3，并且与最先进的监督基线DPT-BEiT、NeWCRFs相当。**
@@ -1253,7 +1232,6 @@ $ AbsRel = |y-\hat y|/y $**，以及预测阈值精度**$ \delta_{1.25} = max(\h
 
 我们在 DTU、ETH3D、Tanks and Temples 和 ScanNet 数据集上对其进行评估。我们测试**每个测试集上阈值为 1.03 的绝对相对误差 (rel) 和内点比率 (τ ) 以及所有测试集的平均值。**注意，我们没有利用GT相机参数和姿势，也没有利用GT深度范围，因此我们的预测仅在比例因子范围内有效。为了进行定量测量，我们使用预测深度和真实深度的中值对预测进行归一化。
 
-<!-- 这是一张图片，ocr 内容为： -->
 ![](https://cdn.nlark.com/yuque/0/2025/png/58377837/1766284781051-076c8452-f9c9-4f1e-a7a4-31e2522d6d80.png)
 
 我们在表 3 中观察到，**DUSt3R 在 ETH-3D 上实现了最先进的精度，并且总体上优于最新最先进的方法，即使是那些使用真实相机姿势的方法**。从时间上看，我们的方法也比传统的 COLMAP 管道快得多。这展示了我们的方法在各种领域（室内、室外、小规模或大规模场景）的适用性，同时没有在测试领域进行训练（除了 ScanNet 测试集），因为训练分割是 Habitat 数据集的一部分。
@@ -1263,7 +1241,6 @@ $ AbsRel = |y-\hat y|/y $**，以及预测阈值精度**$ \delta_{1.25} = max(\h
 ## 3.5 3D Reconstruction
 最后，测量在第2.4节中描述的全局对齐过程后获得的完整重建的质量。**我们再次强调，我们的方法是第一个实现全局无约束 MVS 的方法，因为我们没有关于相机内在和外在参数的先验知识。**为了量化重建的质量，我们只需将预测与地面GT坐标系对齐。这是通过将参数固定为2.4节中的常量来完成的。这致使在地面实况坐标系中表达一致的 3D 重建。
 
-<!-- 这是一张图片，ocr 内容为： -->
 ![](https://cdn.nlark.com/yuque/0/2025/png/58377837/1766285790664-47e929dd-af7a-474d-99f8-33577adced3e.png)
 
 我们评估我们对 DTU 数据集的预测。我们在零样本设置中应用我们的网络，即我们不对 DTU 训练集进行微调并按原样应用我们的模型。在表4我们报告了基准作者提供的**平均准确性、平均完整性和总体平均误差指标**。重建形状的点的准确性被定义为到GT值的最小欧几里德距离，并且地面实况的点的完整性被定义为到重建形状的最小欧几里德距离。总体只是之前两个指标的平均值。
